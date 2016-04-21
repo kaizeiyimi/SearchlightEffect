@@ -1,6 +1,5 @@
 //
-//  Searchlight.swift
-//  testRadialGradient
+//  SearchlightEffect.swift
 //
 //  Created by kaizei on 16/2/1.
 //  Copyright © 2016年 kaizei. All rights reserved.
@@ -9,38 +8,37 @@
 import UIKit
 
 public struct SearchlightConfig {
-    var lightColor: UIColor = .whiteColor()
+    var lightColor = UIColor.whiteColor()
     var radius:(start: CGFloat, end: CGFloat)? = nil
-    var speed: Double = 120
+    var speed = 120.0   // nagative moves R2L.
 }
 
 extension UIView {
-    private static var kSearchlightLayerKey = "kSearchlightLayerKey"
+    private struct AssociatedKeys {
+        static var kSearchlightLayerKey = "kSearchlightLayerKey"
+    }
     
-    func xly_setSearchlight(var config: SearchlightConfig? = nil) {
+    func xly_setSearchlight(config: SearchlightConfig? = SearchlightConfig()) {
         xly_removeSearchlight()
         maskView = snapshotViewAfterScreenUpdates(true)
-        config = config ?? SearchlightConfig()
+        var config = config
         config?.radius = config?.radius ?? (bounds.height * 0.6, bounds.height * 1.8)
         
         let searchlightLayer = SearchlightLayer()
         searchlightLayer.config = config
         searchlightLayer.frame = CGRectMake(0, 0, config!.radius!.end * 2, bounds.height)
         searchlightLayer.position = CGPointMake(bounds.width / 2, bounds.height / 2)
-        
-        let link = CADisplayLink(target: TargetWrapper(searchlightLayer), selector: "linkFired:")
-        searchlightLayer.link = link
-        link.addToRunLoop(NSRunLoop.mainRunLoop(), forMode: NSRunLoopCommonModes)
+        searchlightLayer.link.addToRunLoop(NSRunLoop.mainRunLoop(), forMode: NSRunLoopCommonModes)
         
         layer.addSublayer(searchlightLayer)
         searchlightLayer.setNeedsDisplay()
         
-        objc_setAssociatedObject(self, &UIView.kSearchlightLayerKey, searchlightLayer, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+        objc_setAssociatedObject(self, &AssociatedKeys.kSearchlightLayerKey, searchlightLayer, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
     }
     
     func xly_removeSearchlight() {
-        (objc_getAssociatedObject(self, &UIView.kSearchlightLayerKey) as? CALayer)?.removeFromSuperlayer()
-        objc_setAssociatedObject(self, &UIView.kSearchlightLayerKey, nil, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+        (objc_getAssociatedObject(self, &AssociatedKeys.kSearchlightLayerKey) as? CALayer)?.removeFromSuperlayer()
+        objc_setAssociatedObject(self, &AssociatedKeys.kSearchlightLayerKey, nil, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
         maskView = nil
     }
 }
@@ -48,10 +46,13 @@ extension UIView {
 
 final private class SearchlightLayer: CALayer {
     var config: SearchlightConfig!
-    var link: CADisplayLink!
+    lazy var link: CADisplayLink = {
+        let link = CADisplayLink(target: TargetWrapper(self), selector: #selector(linkFired(_:)))
+        return link
+    }()
     
     deinit {
-        link?.invalidate()
+        link.invalidate()
     }
     
     @objc func linkFired(link: CADisplayLink) {
